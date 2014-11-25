@@ -1,0 +1,318 @@
+\documentclass[12pt]{report}
+
+\usepackage{scribe_MG}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{placeins}
+
+\newcommand{\esp}{\mathbb{E}}
+\newcommand{\var}{\mathbb{V}ar}
+\newcommand{\p}{\mathbb{P}}
+\newcommand{\R}{\mathbb{R}}
+
+\newtheorem{remark}{Remark}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{properties}{Properties}[section]
+
+
+\begin{document}
+
+\coursetitle{Learning in graphical models \& MCMC methods}
+\semester{Fall 2014}
+\lecturer{Guillaume Obozinski} 
+\scribe{Khalife Sammy, Maryan Morel}
+\lecturenumber{8} 
+\lecturedate{November 19}
+\maketitle
+
+The web page of the course: \url{http://www.di.ens.fr/~fbach/courses/fall2014/}
+
+\section{HMM (cntd.)}
+\section{Learning on graphical models}
+\section{Approximate inference}
+\subsection{Sampling methods}
+
+We often need to comptue the expectancy of a function $f$ under some distribution $p$ that cannot be computed. Let $X$ be a random variable following the distribution $p$, we want to compute $\mu = \esp[f(X)]$.
+
+\begin{example}
+$ X = (X_1, ..., X_n)$,
+$$f(X) = \delta(X = x_A)$$
+$$\esp[f(X)] = \p(X=x_A)$$
+\end{example}
+
+If we know how to sample from $p$, we can use the following method :
+
+\FloatBarrier
+\begin{algorithm}
+\caption{Monte Carlo Estimation}\label{RS}
+\begin{algorithmic}[1]
+\State Draw $X_1, ..., X_n~\overset{i.i.d.}{\sim}~p$
+\State $\hat{\mu} = \frac{1}{n}\sum_{i=1}^n f(X_i)$
+\end{algorithmic}
+\end{algorithm}
+\FloatBarrier
+
+This method relies on the two following propositions :
+
+\begin{proposition}[Law of Large Numbers (LLN)]
+\[
+\hat{\mu} \overset{a.s.}{\longrightarrow} \mu \text{ if } ||\mu|| < \infty
+\]
+\end{proposition}
+
+\begin{proposition}[Central Limit Theorem (CLT)]
+For $X$ a scalar random variable, if $\var(f(X)) = \sigma^2 < \infty$, then
+\[
+  \sqrt{n}(\hat{\mu} - \mu) \overset{\mathcal{D}}{\longrightarrow} \mathcal{N}(0, \sigma^2)
+\]
+thus $\esp(||\hat{\mu} - \mu||^2_2) = \frac{\sigma^2}{n}$
+\end{proposition}
+
+\paragraph{How to sample from a specific distribution ?}
+
+\BNUM
+\item Uniform distribution on [0, 1] : use \texttt{rand}
+\item Bernoulli distribution of parameter $p$ : $X = \ones_{\lbrace U <p\rbrace}$ with $U \sim \mathcal{U}([0, 1])$
+\item Using inverse transform sampling :
+$$\forall x \in \R \hspace{1cm} F(x) = \int_{-\infty}^x p(t)dt = \p(X \in [-\infty, x])$$
+$$X = F^{-1}(U)\ \text{avec}\ U \sim \mathcal{U}([0, 1])$$
+\begin{proof}
+$\p(X \leq y) = \p( F^{-1}(U) \leq y) = \p(U \leq F(y)) = F(y)$
+\end{proof}
+\begin{example} Exponential distribution (one of the rare cases admitting an explicit inverse CDF\footnote{Cumulative Distribution Function})
+$$p(x) = \lambda e^{-\lambda x} \ones_{\R_+}(x)$$
+$$X = - \frac{1}{\lambda}\ln (U)$$
+\end{example}
+\ENUM
+
+\subsection{Rejection sampling} 
+Assume that $p(x)$ is known up to a constant \[
+	p(x) = \frac{\tilde{p}(x)}{Z_p}
+\]
+Assume that we can construct and compute $q_k$ such that \[
+	\tilde{p}(x) < kq_k(x)
+\] with $q_k$ a probability distribution.
+Assume we can sample from $q$
+We define the rejection sampling (R.S.) algorithm as :
+\FloatBarrier
+\begin{algorithm}
+\caption{Rejection Sampling Algorithm}\label{RS}
+\begin{algorithmic}[1]
+\State Draw $X$ from $q$
+\State Accept $X$ with probability $\frac{\tilde{p}(x)}{kq_k(x)} \in [0,1]$, otherwise, reject the sample
+\end{algorithmic}
+\end{algorithm}
+\FloatBarrier
+
+\begin{proof}
+\BEAS
+\p(X = x, X \text{ is accepted}) &=& \p(X = x, X \text{ is accepted})\\
+&=& \p(X \text{ is accepted} | X = x) \p(X = x)\\
+&=& \frac{\tilde{p}(x)}{kq(x)} q(x)\\
+&=& \frac{\tilde{p}(x)}{k}
+\EEAS
+and 
+\BEAS
+\p(X \text{ is accepted}) &=& \int \frac{\tilde{p}(x)}{k} \mathrm{d} x\\
+ &=& \frac{Z_p}{k}
+\EEAS
+Thus 
+\BEAS
+\p(X = x | X \text{ is accepted}) &=& \frac{\tilde{p}(x)}{k} \frac{k}{Z_p}\\
+ &=& p(x)
+\EEAS
+
+\end{proof}
+
+\begin{remark}
+In practice, finding $q$ and $k$ such that acceptance has a reasonably large probability is hard.
+\end{remark}
+
+\subsection{Importance Sampling} 
+Assume $X \sim p$. We aim to compute the expectancy of a function $f$ :
+
+\BEAS
+\esp_p(f(X)) &=& \int f(x) p(x) \mathrm{d} x\\
+&=& \int \frac{f(x)p(x)}{q(x)} q(x) \mathrm{d} x\\
+&=& \esp_q \left(f(Y)\frac{p(Y)}{q(Y)} \right) \qquad \text{ with } Y \sim q\\
+&=& \esp_q(g(Y)) \\
+&\approx& \frac{1}{n}\sum_{j=1}^n g(Y_j) \qquad \text{ with } Y_j \overset{iid}{\sim} q\\
+&=& \frac{1}{n}\sum_{j=1}^n f(Y_j)\frac{p(Y_j)}{q(Y_j)}
+\EEAS
+
+$w(Y_i) = \frac{p(Y_j)}{q(Y_j)}$ are called \emph{importance weights}. Remind that
+\[
+	\mu = \esp_p(f(X)) \approx \hat{\mu} = \frac{1}{n}\sum_{i=1}^n f(X_i)
+\]
+
+Thus we get :
+\BEAS
+\esp(\hat{\mu}) &=& \frac{1}{n} \sum \int f(x) \frac{p(x)}{q(x)}q(x) dx = \int f(x)p(x)dx \\
+Var(\hat{\mu})&=& \frac{1}{n} Var_{q(x)}\left(\frac{f(x)p(x)}{q(x)}\right)
+\EEAS
+
+\begin{lemma}
+If $\forall x,\ |f(x)|\leq M$, $$Var(\hat{\mu})\leq \frac{M^2}{n}\int\frac{p(x)^2}{q(x)} dx.$$
+\end{lemma}
+
+\begin{proof}
+\BEAS
+Var(\hat{\mu}) =& \frac{1}{n} Var_{q(x)}\left(\frac{f(x)p(x)}{q(x)}\right)\\
+\leq & \frac{1}{n} \int \frac{f(x)^2 p(x)^2}{q(x)^2}q(x) dx \\
+\leq & \frac{M^2}{n} \int \frac{p(x)^2}{q(x)} dx.
+\EEAS
+\end{proof}
+
+\begin{remark}
+\BEAS
+\int \frac{p(x)^2}{q(x)} dx &=& \int{ \frac{p^2(x)-2p(x)q(x)+q^2(x)}{q(x)} dx} + \int{ \frac{2p(x)q(x)-q^2(x)}{q(x)} dx}\\
+&=&\underbrace{\int{ \frac{(p(x)-q(x))^2}{q(x)}} dx}_{\text	{$\chi^2$ divergence between $p$ and $q$.}}+1
+\EEAS
+
+Hence, importance sampling will give good results if $q$ has mass where $p$ has. Indeed, if for some $y$, $q(y) << p(y)$, importance weights  $Var(\hat{\mu})$ may be very large.
+\end{remark}
+\vspace*{1cm}
+
+\paragraph{Extension of Importance Sampling}
+Assume we only know $p$ and $q$ up to a constant : $p(x) = \frac{\tilde{p}(x)}{Z_p}$ and $q(x) = \frac{\tilde{q}(x)}{Z_p}$, and only $\tilde{p}(x)$ and $\tilde{q}(x)$ are known.
+
+\BEAS
+\esp \left(f(Y)\frac{\tilde{p}(Y)}{\tilde{q}(Y)} \right) &=& \esp \left(f(Y)\frac{p(Y)}{q(Y)}\frac{Z_p}{Z_q} \right) = \mu \frac{Z_p}{Z_q} \\
+\hat{\tilde{\mu}} &=& \frac{1}{n} \sum_{i=1}^n f(Y_i) \frac{\tilde{p}(Y_i)}{\tilde{q}(Y_i)} \overset{a.s.}{\longrightarrow} \mu \frac{Z_p}{Z_q}
+\EEAS
+
+Take $f$ to be a constant, we get 
+
+\BEAS
+\hat{Z}_{p/q} &=& \frac{1}{n} \sum_{i=1}^n \frac{p(Y_i)}{q(Y_i)} \overset{a.s.}{\longrightarrow} \frac{Z_p}{Z_q} \\
+\hat{\mu} &=& \frac{\hat{\tilde{\mu}}}{\hat{Z}_{p/q}} \overset{a.s.}{\longrightarrow} \mu
+\EEAS
+
+\begin{remark}
+Even if $Z_p = Z_q = 1$, renormalizing by $\hat{Z}_{p/q}$ often improves the estimation.
+\end{remark}
+
+\section{Markov Chain Monte Carlo (MCMC)}
+
+\paragraph{Context}
+$x \in \mathcal{X}$, $\mathcal{X}$ finite. We aim to build a Markov chain $X_0,X_1,\dots$ such that its density $q_t(x) = p(X_t = x)$ converges to a target distribution $p(x)$.  
+
+\subsection{Reminder on Markov chains}
+Consider order 1 homogenous Markov chains, i.e. $$\p(X_t=y|X_{t-1}=x) = \p(X_{t-1}=y|X_{t-2}=x)$$
+
+\begin{definition}[Time Homogenous Markov chain]
+  \BEAS
+    \forall t \geq 0 \; \forall (x,y) \in \mathcal{X} 
+    && p(X_{t+1}=y ~|~ X_t=x, X_{t-1},\dots,X_0) \\
+    && = p(X_{t+1}=y ~|~ X_t=x) \\ 
+    && = p(X_1=y ~|~ X_0=x) \\
+    && = S(x,y)
+  \EEAS
+\end{definition}
+
+\begin{definition}[Transition matrix]
+  Let $k = card(\mathcal{X}) < \infty$. We define the matrix $S \in \R^{k\times k}$ such that $\forall x,y \in \mathcal{X}, S(x,y)=\p(X_t=y|X_{t-1}=x)$. $S$ is called \emph{transition matrix} of the Markov chain $(X_k)_{k}$.
+\end{definition}
+  
+\begin{properties}
+  If $k = card(\mathcal{X}) < \infty$, then:
+  \begin{itemize}
+    \item $S \succeq 0$
+    \item $S \mathbf{1} = \mathbf{1}$ (i.e. column sum is equal to $1$)
+  \end{itemize}
+  $S$ is a stochastic matrix
+\end{properties}
+
+\begin{definition}[Stationary Distribution]
+The distribution $\pi$ on $\mathcal{X}$ is stationary if $S^T\Pi = \Pi$ where 
+$$ \Pi = \begin{matrix}
+  ~ \\
+  \pi(x) \\
+  ~
+ \end{matrix}_{x \in \mathcal{X}}$$
+Equivalently,
+$$\text{i.e.}\ \forall x, y\,\,\, \pi(y) = \sum_x \pi(x)S(x, y)$$
+If $\p(X_{n} = x) = \pi(x)$ with $\pi$ a stationary distribution of $S$, then we have
+$\p(X_{n + 1} = y) = \sum_x \p(X_{n+1}  = y | X_n = x)\p(X_n = x) = \sum_x S(x, y)\pi(x) = \pi(y)$
+\end{definition}
+
+\begin{theorem}[Perron-Frobenius]
+Every stochastic matrix S has \emph{at least} one stationary distribution $\pi$
+\end{theorem}
+
+\begin{definition}[Regular Markov Chain]
+  A markov chain is regular (or equivalently aperiodic irreductible) if $\forall x,y \in \mathcal{X}, S(x,y) > 0$
+\end{definition}
+
+\begin{proposition}
+If a Markov chain is regular, then its transition matrix has a unique stationary distribution $\pi$ and for any initial distribution $q_0$ on $X_0$, if $q_t(\cdot) = \p(X_t = \cdot)$, then $q_t \underset{t\rightarrow + \infty}{\longrightarrow} \pi$
+Let $q_n$ be the distribution of $X_n$, then for all distribution $q_0$ we get $$q_n \rightarrow \pi$$
+\end{proposition}
+
+\paragraph{Goal}
+We want to find $$ \pi(x) = \frac{1}{Z}\prod_{c \in \mathcal{C}} \psi_c(x_c) $$ We try to reverse engineer this distribution by finding a Markov chain converging to $\pi$
+
+\begin{definition}[Detailed Balance]
+  A Markov chain is \emph{reversible} if for the transition matrix $S$, $$\exists \pi, \forall x,y \in \mathcal{X}, \pi(x)S(x,y) = \pi(y)S(y,x)$$
+  This equation is called \emph{detailed balance equation}. It can be reformulated $$\p(X_{t+1}=y, X_t = x) = \p(X_{t+1}=x, X_t = y)$$
+\end{definition}
+
+\begin{proposition}
+  If $\pi$ satisfies detailed balance, then $\pi$ is a stationary distribution and
+  $\sum_x S(x, y)p(x) = \sum_x p(y)S(y, x) = p(y)\sum_x S(y, x) = p(y)$
+\end{proposition}
+
+\subsection{Metropolis-Hastings Algorithm}
+\paragraph{Proposal transition}
+$T(x,z) = \p(Z=z | X=x)$
+\paragraph{Acceptance probability}
+$\alpha(x,t) = \p(\text{Accept z }| X=x, Z=z)$
+\begin{danger}
+$\alpha$ is not a transition matrix.  
+\end{danger}
+
+\FloatBarrier
+\begin{algorithm}
+\caption{Metropolis Hastings}\label{RS}
+\begin{algorithmic}[1]
+\State Initialize $x_0$ from $X_0 \sim q$
+\For{$t=1,\dots, T$}
+  \State Draw $z_t$ from $\p(Z=\cdot|X_{t-1}=x_{t-1})=T(x_{t-1}, \cdot)$
+  \State With probability $\alpha(Z_t, x_{t-1})$, set $x_t = z_t$, otherwise, set $x_t = x_{t-1}$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+\FloatBarrier
+
+\begin{proposition}
+  With that choice of $\alpha(x,z)$, if $T(\cdot, \cdot)$ is regular, then the Metropolis-Hastings algorithm defines a Markov chain that converges to $\pi$.
+\end{proposition}
+
+\paragraph{Explanation}
+$\p(X_t=x_t|X_{t-1}=x_{t-1}) = S(x_{t-1}, x_t)$
+\BEAS
+\forall z \neq x, S(x,z) &=& T(x,z) \alpha(x,z) \\
+S(x,x) &=& T(x,x) + \sum_{z\neq x}T(x,z)(1-\alpha(x,z))
+\EEAS
+Let $\pi$ be given : we want to choose $S$ such that we have \emph{detailed balance} :
+\BEAS
+\pi(x)S(x,z) &=& \pi(z)S(z,x) \\
+\pi(x)T(x,z)\alpha(x,z) &=& \pi(z)T(z,x)\alpha(z,x)
+\EEAS
+Then 
+$$\frac{\alpha(x,z)}{\alpha(z,x)} = \frac{\pi(z)T(z,x)}{\pi(x)T(x,z)} ~(*)$$
+If $$\alpha(x,z) = \min\left(1, \frac{\pi(z)T(z,x)}{\pi(x)T(x,z)} \right) $$
+then
+$$\left\{
+    \begin{array}{l}
+        \alpha(x,z) \in [0,1] \\
+        (*)\text{ is satisfied} \implies \text{ detailed balance}
+    \end{array}
+\right.
+$$
+
+\end{document}
