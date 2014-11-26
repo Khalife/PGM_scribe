@@ -7,7 +7,12 @@
 \usepackage{url}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+\usepackage{ stmaryrd }
 \usepackage{placeins}
+\usepackage{ amssymb }
+\usepackage{mathtools}
+\newcommand{\equalexpl}[1]{%
+  \underset{\substack{\uparrow\\\mathrlap{\text{\hspace{-1em}#1}}}}{=}}
 
 \newcommand{\esp}{\mathbb{E}}
 \newcommand{\var}{\mathbb{V}ar}
@@ -31,8 +36,108 @@
 
 The web page of the course: \url{http://www.di.ens.fr/~fbach/courses/fall2014/}
 
-\section{HMM (cntd.)}
+\section{HMM (end)}
+As a reminder, the message propagation algorithm for Hidden Markov Models writes itself under 2 recursions : ~\\
+~\\
+One of them is the $\alpha - recursion$ : $\alpha_{t + 1} = p \left( y_{t
++ 1} \left| \right. z_{t + 1} \right) \underset{z_t}{\sum} p \left( z_{t + 1}
+\left| \right. z_t \right) \alpha_t \left( z_t \right)$.~\\
+~\\
+Since the probabilities are usually small, one will achieve the computation with logarithms.
+For instance we write matricially :~\\
+~\\
+$\alpha_{t + 1} = M \alpha_t \Leftrightarrow exp ( \tilde{\alpha}_{t + 1} ) = Mexp( \tilde{\alpha}_t )$  avec $\tilde{\alpha}_t = \log (
+\alpha_t )$~\\
+~\\
+For a more robust computation, one will use more precisally :
+~\\
+
+$y = \sum_{k=1}^{n} x_k$,
+
+with $\tilde{y} = \log (y)$, $\tilde{x} = \log(x)$
+
+and $y = \sum_{k=1}^{n} x_k$ $\Leftrightarrow
+exp \left( \tilde{y} \right) = \sum_{k=1}^{n} exp \left(
+\widetilde{x_k} \right)$
+
+then $\tilde{y} = \log [ \sum_{k=1}^{n} exp (
+\widetilde{x_k}) ]$~\\
+~\\
+To avoid the loss of soft maximisation, a normalization of the $\widetilde{x_{k}}$ is welcome : ~\\
+Let $M = \max \limits_{k} ( \widetilde{x_{k}} )$ then we can write $\tilde{y} = \log \sum_{k=1}^{n} exp (
+\widetilde{x_k} - M ) + M$, which yields a robust computation.
+
+
+
+\begin{remark}
+For hidden markov models, the max-product algorithm will give the most probable sequence for hidden states.
+\end{remark}
+\section{Multiclass classification and link with logistic regression}
+
+
+
+In this part we will consider the following case :~\\ 
+~\\
+$X^{i} : \Omega \mapsto \{0,1\}^{p} $, with $X_{j}^{i}=0$ if the word j is present in i~\\
+$Y^{i} : \Omega \mapsto \{0,1\}^{K} $ ~\\
+~\\
+This model is used for example to classify documents by assuming the bag of words.~\\
+Let M classes of documents, and we want to assign a document to a class. For this we look at the presence of K words that will allow us to determine to which class belongs the document. X is called the binary vector of K bits giving the presence or absence of a word in the document.~\\
+~\\
+We could try to directly estimate $p (y_{i}| x_{i}) $. This corresponds to a $2^{k}$ vector possibilities, and very limitative from a computational point of view.
+We therefore use another model, said Naïve Bayes.~\\
+~\\ 
+\textbf{Exemple of generative model for K classes : Naïve Bayes}~\\
+~\\
+It is here assumed that $X_{i} | Y_{i} $ are independant. This is clearly a strong hypothesis (because the presence of words can be highly correlated given the type of the document), but in practice this reveals to be quite relevant. We want to derive the model of prediction by comparaison with the logistic regression. ~\\
+
+\includegraphics[width=13cm]{generativeModel}~\\
+~\\
+We suppose that $Y_{i}$ follows a multnomial distribution of parameters $(\pi_{1},...,\pi_{K})$, and we write 
+$\mu_{j, k}=P(X_{j}^{(i)}=1 | Y_{k}^{(i)}=1)$~\\
+
+$p(X^{i}=x_{i}, Y^{i}=y_{i}) = p(x_{i}, y_{i}) = p(x_{i} | y_{i})p(y_{i})$~\\
+~\\
+We suppose here $X^{i}_{1} | Y^{i}_{1}, ..., X^{i}_{p} | Y^{i}_{K}$ are independant, and that $(Y^{i}_{1}, ..., Y^{i}_{K})$ are also independant. Then :
+\begin{align*}
+p(x_{i} | y_{i})p(y_{i}) = \prod_{j=1}^{p} \prod_{k=1}^{K}\mu_{jk}^{\delta(x_{i}^{(j)}=1,y_{i}^{k}=1)}(1-\mu_{jk})^{\delta(x_{i}^{(j)}=0, y_{i}^{k}=1)} \prod_{k=1}^{K}\pi_{k}^{y_{i}^{(k)}}\\
+\end{align*}
+Then,
+\begin{align*}
+log[\, p(x_{i} | y_{i})p(y_{i})\,] = \, \sum_{j=1}^{p} \sum_{k=1}^{K} [\, log(\mu_{jk})x_{i}^{(j)}y_{i}^{k}+log(1-\mu_{jk})(1-x_{i}^{(j)})(1-y_{i}^{k})\, ]+ \sum_{k=1}^{K}log(\pi_{k})y_{i}^{(k)}\, ]\, \\
+\end{align*}
+Since $p(y_{i}|x_{i}) \sim p(x_{i},y_{i})$ with regards to the model, 
+$$ log[\, p(y_{i} | x_{i}) \,] = \omega_{i}^{t} \phi(x^{i}, y^{i})  $$
+
+which is a generalization of the logistic regression for binary classification. 
+
 \section{Learning on graphical models}
+\subsection{ML principle for general Graphical Models}
+\textbf{\underline{Directed graphical model}}~\\
+~\\
+\textbf{Proposition} : Let G be a directed graph with p nodes. Assume that (X(1), ... X(n)) are i.i.d, with p features : i.e $\forall$ i $\in \{1,..n\}$ $X_{i} \in \mathbb{R}^{p}$ , and that are fully observed, i.e there is no latent or hidden variable among them. Then the ML principle decouples in p optimisation problems.~\\
+~\\
+\textbf{Proof} : Let us assume we have a decoupled model, i.e : ~\\
+~\\
+$p \in p_{u} = \{p_{\theta}(x)=\prod_{j} p(x_{j} | x_{\pi_{j}}, \theta_{j}), \theta j = (\theta_{1}, ..., \theta_{p}) \in H = H_{1}\times...\times H_{p}\}$~\\
+~\\
+$L(\theta) = \prod \limits_{i =1 k} p(x^{i}|\theta) = \prod \limits_{i=1, n} \prod \limits_{j=1, .. p } p(x_{j}|x^{i}_{\pi_{j}},\theta_{j})    $~\\
+~\\
+$l(\theta) = \sum_{j=1..p} \sum_{i=1,..n} log p(x^{i}_{j} | x^{i}_{\pi{j}}), \theta_{j})$~\\
+~\\
+Then the ML principle reduces to solving p optimization problems :~\\
+~\\
+$\max\limits_{\theta_{j}}   l_{j}(\theta_{j}) $~\\
+s.t $ \theta_{j} \in H$~\\
+~\\
+With $l_{j}(\theta_{j})=\sum_{i=1,..n} log p(x^{i}_{j} | x^{i}_{\pi{j}}), \theta_{j})$  $\blacksquare$~\\
+~\\
+\textbf{\underline{Undirected graphical model}}~\\
+~\\
+$\shortrightarrow$ The ML problem is convex if : the data is fully observed (no latent or hidden variable), and the parameters are decoupled.~\\
+$\shortrightarrow$ In general, if the data is not fully observed, the EM scheme or similar scheme is used.~\\
+If the parameters are coupled, the problem remains convex in some cases (e.g linear coupling), but not in general.~\\
+$\shortrightarrow$ If the modelisation is a tree, reformulating it as a directed tree to get back to the directed case.
 \section{Approximate inference}
 \subsection{Sampling methods}
 
